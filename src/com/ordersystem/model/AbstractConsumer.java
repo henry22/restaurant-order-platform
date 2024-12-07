@@ -3,8 +3,6 @@ package com.ordersystem.model;
 import java.util.ArrayList;
 import java.util.List;
 
-import java.util.*;
-
 // 抽象消費者類別
 public abstract class AbstractConsumer {
   protected List<AbstractOrder> orders; // 訂單列表
