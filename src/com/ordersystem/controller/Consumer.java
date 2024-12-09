@@ -50,6 +50,7 @@ public class Consumer extends AbstractConsumer implements Runnable {
         }
       }
     } catch(InterruptedException e) {
+      e.printStackTrace();
       Thread.currentThread().interrupt();
     }
   }
