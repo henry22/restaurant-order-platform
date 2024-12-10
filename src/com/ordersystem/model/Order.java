@@ -20,6 +20,11 @@ public class Order extends AbstractOrder {
     return this.time;
   }
 
+  // 設定訂單時間
+  public void setTime(LocalDateTime time) {
+    this.time = time;
+  }
+
   // 檢查訂單是否過期，超過24小時
   public boolean isExpired() {
     return LocalDateTime.now().minusHours(24).isAfter(this.time);
