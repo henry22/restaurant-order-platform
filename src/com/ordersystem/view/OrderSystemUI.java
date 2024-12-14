@@ -331,6 +331,12 @@ public class OrderSystemUI extends JFrame {
 
       // 建立新的購物車項目
       JPanel newPanel = createCartItem(item, quantity);
+
+      if(newPanel != null) {
+        this.cartListPanel.add(newPanel);
+      }
+
+      forceUpdateUI();
     });
   }
 
@@ -374,10 +380,10 @@ public class OrderSystemUI extends JFrame {
     }
 
     JPanel cartItem = new JPanel(new FlowLayout(FlowLayout.LEFT));
-    cartItem.setMaximumSize(new Dimension(Integer.MIN_VALUE, 50));
+    cartItem.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
     cartItem.setPreferredSize(new Dimension(380, 50));
 
-    JLabel namLabel = new JLabel(item.getName());
+    JLabel nameLabel = new JLabel(item.getName());
     JLabel quantityLabel = new JLabel("x " + this.cartListItems.get(item));
 
     RoundLabel imgLabel = new RoundLabel("IMG");
@@ -395,6 +401,13 @@ public class OrderSystemUI extends JFrame {
       cartListPanel.remove(cartItem);
       forceUpdateUI();
     });
+
+    cartItem.add(imgLabel);
+    cartItem.add(nameLabel);
+    cartItem.add(quantityLabel);
+    cartItem.add(deleteButton);
+
+    return cartItem;
   }
 
   private void loadSavedOrders() {}
