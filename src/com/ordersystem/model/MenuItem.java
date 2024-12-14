@@ -18,4 +18,9 @@ public class MenuItem {
   public double getPrice() {
     return this.price;
   }
+
+  @Override
+  public String toString() {
+    return String.format("%s-%.1f", getName(), getPrice());
+  }
 }
