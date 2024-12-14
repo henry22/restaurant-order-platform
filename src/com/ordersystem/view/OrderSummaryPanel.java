@@ -25,4 +25,12 @@ public class OrderSummaryPanel extends JPanel {
     add(this.totalAmountLabel);
     add(this.dailyRevenueLabel);
   }
+
+  public void updateTotalAmount(double amount) {
+    totalAmountLabel.setText(String.format("總金額: $%.2f", amount));
+  }
+
+  public void updateDailyRevenue(double revenue) {
+    dailyRevenueLabel.setText(String.format("今日營業額: $%.2f", revenue));
+  }
 }

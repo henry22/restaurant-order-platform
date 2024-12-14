@@ -13,11 +13,13 @@ import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.border.TitledBorder;
 
 import java.awt.BorderLayout; // Java AWT(Abstract Window Toolkit)
@@ -30,6 +32,8 @@ import java.awt.Graphics2D;
 import java.awt.GridLayout;
 import java.awt.Image;
 import java.awt.RenderingHints;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
@@ -39,6 +43,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 import com.ordersystem.controller.Consumer;
+import com.ordersystem.controller.OrderFactory;
 import com.ordersystem.controller.OrderFileManager;
 import com.ordersystem.controller.Producer;
 import com.ordersystem.model.AbstractOrder;
@@ -338,6 +343,138 @@ public class OrderSystemUI extends JFrame {
 
       forceUpdateUI();
     });
+
+    // 送出訂單按鈕監聽器
+    orderButton.addActionListener(new ActionListener() {
+      @Override
+      public void actionPerformed(ActionEvent e) {
+        // 建立新訂單
+        Order order = null;
+        for(Map.Entry<MenuItem, Integer> item : cartListItems.entrySet()) {
+          if(order == null) {
+            order = OrderFactory.createNextOrder(item.getKey(), item.getValue());
+          } else {
+            order.addItem(item.getKey(), item.getValue());
+          }
+        }
+
+        if(order != null) {
+          producer.addOrder(order);
+          System.out.println(order.getId());
+        }
+
+        orderButton.setEnabled(false);
+
+        try {
+          cartListItems = new HashMap<>();
+          cartListPanel.removeAll();
+          forceUpdateUI();
+          Thread.sleep(500);
+        } catch(InterruptedException event) {
+          event.printStackTrace();
+        }
+
+        orderButton.setEnabled(true);
+      }
+    });
+
+    // 在新執行緒中監控訂單狀態
+    Thread statusMonitor = new Thread(() -> {
+      try {
+        while(!Thread.currentThread().isInterrupted()) {
+          SwingUtilities.invokeLater(() -> {
+            updateStatusPanel();
+          });
+          Thread.sleep(500);
+        }
+      } catch(InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
+    });
+    statusMonitor.setDaemon(true);
+    statusMonitor.start();
+
+    // 處理訂單按鈕監聽器
+    processButton.addActionListener(e -> {
+      // 檢查是否有訂單需要處理
+      // if(producer.getQueue().isEmpty()) {
+      //   JOptionPane.showMessageDialog(this, "目前沒有待處理的訂單");
+      //   return;
+      // }
+      boolean hasWaitingOrders = producer.getTotalOrders().stream().anyMatch(order -> order.getStatus() == OrderStatus.WAITING);
+
+      if(!hasWaitingOrders) {
+        SwingUtilities.invokeLater(() -> {
+          JOptionPane.showMessageDialog(this, "目前沒有待處理的訂單");
+        });
+        return;
+      }
+
+      // 檢查是否有訂單正在處理
+      if(consumer.getProcessingOrder() != null) {
+        JOptionPane.showMessageDialog(this, "已有訂單正在處理中，請稍後再試");
+        return;
+      }
+
+      // 在新執行緒中處理訂單
+      new Thread(() -> {
+        try {
+          // 開始處理下一個訂單
+          consumer.processNextOrder();
+          consumer.startProcessing();
+
+          // 模擬處理時間
+          for(int i = 0; i < 3; i++) {
+            Thread.sleep(1000);
+            SwingUtilities.invokeLater(this::updateStatusPanel);
+          }
+
+          // 完成訂單
+          AbstractOrder processingOrder = consumer.getProcessingOrder();
+          if(processingOrder != null) {
+            consumer.completedOrder(processingOrder);
+
+            // 更新UI並顯示完成訊息
+            SwingUtilities.invokeLater(() -> {
+              updateStatusPanel();
+              JOptionPane.showMessageDialog(this, "訂單 " + processingOrder.getId() + " 處理完成！", "訂單完成", JOptionPane.INFORMATION_MESSAGE);
+            });
+          }
+        } catch(InterruptedException ex) {
+          Thread.currentThread().interrupt();
+          SwingUtilities.invokeLater(() -> {
+            JOptionPane.showMessageDialog(this, "處理訂單時發生錯誤");
+          });
+        }
+      }).start();
+    });
+  }
+
+  private void updateStatusPanel() {
+    // 更新訂單狀態的數目
+    String waitingText = "訂單已接收: " + producer.getTotalOrders().size();
+    String processingText = "正在準備中: " + (consumer.getProcessingOrder() == null ? 0 : 1);
+    String completedText = "餐點已完成: " + consumer.getCountOfCompletedOrders();
+
+    // 更新 labels
+    this.waitingStatusLabel.setText(waitingText);
+    this.processingStatusLabel.setText(processingText);
+    this.completedStatusLabel.setText(completedText);
+
+    // 更新時間
+    String currentTime = getCurrentTime();
+    this.waitingTimeLabel.setText("更新時間: " + currentTime);
+    this.processingTimeLabel.setText("更新時間: " + currentTime);
+    this.completedTimeLabel.setText("更新時間: " + currentTime);
+
+    // 更新訂單金額和今日營業額
+    double currentCartTotal = cartListItems.entrySet().stream().mapToDouble(entry -> entry.getKey().getPrice() * entry.getValue()).sum();
+    this.orderSummaryPanel.updateTotalAmount(currentCartTotal);
+    this.orderSummaryPanel.updateDailyRevenue(consumer.getRevenue());
+
+    // 刷新面板畫面
+    statusPanel.revalidate();
+    statusPanel.repaint();
   }
 
   private JPanel createCartItem(MenuItem item, int quantity) {
