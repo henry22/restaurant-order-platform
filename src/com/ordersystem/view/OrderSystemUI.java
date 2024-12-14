@@ -119,6 +119,13 @@ public class OrderSystemUI extends JFrame {
             }
           }
 
+          // 收集處理中的訂單
+          AbstractOrder processingOrder = consumer.getProcessingOrder();
+          if(processingOrder != null && processingOrder.getStatus() == OrderStatus.PROCESSING) {
+            processingOrder.setStatus(OrderStatus.PROCESSING);
+            ordersToSave.add((Order) processingOrder);
+          }
+
           // 收集已完成的訂單
           for(AbstractOrder order : consumer.getCompletedOrders()) {
             if(order.getStatus() == OrderStatus.COMPLETED) {
@@ -139,7 +146,6 @@ public class OrderSystemUI extends JFrame {
   // 建立主要元件
   private void createJComponents() {
     // 建立主要面板
-    // TODO: Finish the rest of the parts.
     this.menuPanel = createMenuPanel();
     this.orderPanel = createOrderPanel();
     this.statusPanel = createStatusPanel();
@@ -547,7 +553,47 @@ public class OrderSystemUI extends JFrame {
     return cartItem;
   }
 
-  private void loadSavedOrders() {}
+  // 載入已儲存的訂單
+  private void loadSavedOrders() {
+    try {
+      List<Order> savedOrders = orderFileManager.readAllOrders();
+
+      if(!savedOrders.isEmpty()) {
+        for(Order order : savedOrders) {
+          switch (order.getStatus()) {
+            case WAITING:
+              producer.addOrder(order);
+              break;
+            case PROCESSING:
+              consumer.setProcessingOrder(order);
+              new Thread(() -> {
+                try {
+                  consumer.startProcessing();
+                  Thread.sleep(3000);
+                  consumer.completedOrder(order);
+                  SwingUtilities.invokeLater(() -> {
+                    updateStatusPanel();
+                    JOptionPane.showMessageDialog(this, "訂單 " + order.getId() + " 處理完成！", "訂單完成", JOptionPane.INFORMATION_MESSAGE);
+                  });
+                } catch(InterruptedException e) {
+                  Thread.currentThread().interrupt();
+                }
+              }).start();
+              break;
+            case COMPLETED:
+              consumer.addCompletedOrder(order);
+              break;
+            default:
+              break;
+          }
+        }
+
+        updateStatusPanel();
+      }
+    } catch(Exception e) {
+      System.err.println("Error loading saved orders: " + e.getMessage());
+    }
+  }
 
   // 強制更新 UI 的方法
   private void forceUpdateUI() {

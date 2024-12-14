@@ -113,4 +113,24 @@ public class Consumer extends AbstractConsumer implements Runnable {
   public List<AbstractOrder> getTotalOrders() {
     return this.orders;
   }
+
+  public void setProcessingOrder(Order order) {
+    if(order != null) {
+      order.setStatus(OrderStatus.PROCESSING);
+
+      if(!orders.contains(order)) {
+        orders.add(order);
+      }
+    }
+  }
+
+  public void addCompletedOrder(Order order) {
+    if(order != null) {
+      order.setStatus(OrderStatus.COMPLETED);
+
+      if(!orders.contains(order)) {
+        orders.add(order);
+      }
+    }
+  }
 }
